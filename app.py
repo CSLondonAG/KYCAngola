@@ -258,47 +258,61 @@ def process_files(files):
 def build_funnel(df):
     """
     Build funnel metrics tracking each unique user through pipeline stages.
-    Returns an ordered list of (stage_name, unique_user_count).
+
+    For users who ultimately reach Approved status, multiple system-generated
+    Pending events are collapsed to one — only their first pending event counts.
+    This prevents re-pended approved users from inflating the Pending stage
+    and distorting downstream conversion rates.
     """
     if df.empty:
-        return []
+        return {}
 
     all_users = df["UserID"].dropna().nunique()
 
-    # Stage 1 — entered the system (any event)
+    # Users whose final recorded outcome is Approved
+    approved_user_ids = set(df.loc[df["IsApproval"], "UserID"].dropna().unique())
+
+    # Deduplicated pending view:
+    #   approved users -> keep only their earliest pending event (one per user)
+    #   everyone else  -> keep as-is
+    pending_rows = df.loc[df["IsSystemUpdate"] & df["IsPending"]].copy()
+    approved_pending = (
+        pending_rows[pending_rows["UserID"].isin(approved_user_ids)]
+        .sort_values("EventDateTime")
+        .drop_duplicates(subset=["UserID"], keep="first")
+    )
+    other_pending = pending_rows[~pending_rows["UserID"].isin(approved_user_ids)]
+    deduped_pending = pd.concat([approved_pending, other_pending], ignore_index=True)
+
+    # Stage 1 — entered the system
     entered = all_users
 
-    # Stage 2 — flagged pending by system
-    pending_users = df.loc[df["IsSystemUpdate"] & df["IsPending"], "UserID"].dropna().unique()
+    # Stage 2 — system-flagged pending (approved users counted once each)
+    pending_users = set(deduped_pending["UserID"].dropna().unique())
     pending_n = len(pending_users)
 
-    # Stage 3 — received any manual/agent action
-    actioned_users = df.loc[df["IsManualAction"], "UserID"].dropna().unique()
-    actioned_n = len(actioned_users)
+    # Stage 3 — agent touched the user at any point
+    actioned_users = set(df.loc[df["IsManualAction"], "UserID"].dropna().unique())
 
-    # Stage 4 — reviewed (agent touched after system pending)
-    reviewed_ids = set(pending_users) & set(actioned_users)
+    # Stage 4 — reviewed = pending AND actioned
+    reviewed_ids = pending_users & actioned_users
     reviewed_n = len(reviewed_ids)
 
     # Stage 5 — approved
-    approved_users = df.loc[df["IsApproval"], "UserID"].dropna().unique()
-    approved_n = len(set(approved_users))
+    approved_n = len(approved_user_ids)
 
-    # Stage 6 — rejected
-    rejected_users = df.loc[df["IsRejected"], "UserID"].dropna().unique()
-    rejected_n = len(set(rejected_users))
+    # Stage 6a — rejected
+    rejected_n = df.loc[df["IsRejected"], "UserID"].dropna().nunique()
 
     # Stage 6b — withdrawn
-    withdrawn_users = df.loc[df["IsWithdrawn"], "UserID"].dropna().unique()
-    withdrawn_n = len(set(withdrawn_users))
+    withdrawn_n = df.loc[df["IsWithdrawn"], "UserID"].dropna().nunique()
 
-    # Awaiting review (pending, never actioned)
-    awaiting_n = pending_n - reviewed_n
+    # Awaiting review — pending but no agent action yet
+    awaiting_n = len(pending_users - actioned_users)
 
     return {
         "entered": entered,
         "pending": pending_n,
-        "actioned": actioned_n,
         "reviewed": reviewed_n,
         "approved": approved_n,
         "rejected": rejected_n,
