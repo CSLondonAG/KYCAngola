@@ -21,32 +21,34 @@ st.markdown(
 
     html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 
-    .stApp { background: #0d0f14; color: #e8eaf0; }
+    .stApp { background: #f5f6fa; color: #1a1d27; }
 
     /* Metric cards */
     [data-testid="metric-container"] {
-        background: #161922;
-        border: 1px solid #252836;
+        background: #ffffff;
+        border: 1px solid #e2e5ef;
         border-radius: 12px;
         padding: 20px 24px;
+        box-shadow: 0 1px 4px rgba(0,0,0,.06);
     }
-    [data-testid="metric-container"] label { color: #7b8299; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
-    [data-testid="metric-container"] [data-testid="stMetricValue"] { font-family: 'DM Mono', monospace; font-size: 2rem; color: #e8eaf0; }
+    [data-testid="metric-container"] label { color: #6b7390; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    [data-testid="metric-container"] [data-testid="stMetricValue"] { font-family: 'DM Mono', monospace; font-size: 2rem; color: #1a1d27; }
     [data-testid="metric-container"] [data-testid="stMetricDelta"] { font-size: 12px; }
 
     /* Funnel card */
     .funnel-card {
-        background: #161922;
-        border: 1px solid #252836;
+        background: #ffffff;
+        border: 1px solid #e2e5ef;
         border-radius: 12px;
         padding: 28px;
         margin-bottom: 24px;
+        box-shadow: 0 1px 4px rgba(0,0,0,.06);
     }
     .funnel-title {
         font-size: 11px;
         letter-spacing: .12em;
         text-transform: uppercase;
-        color: #7b8299;
+        color: #6b7390;
         margin-bottom: 20px;
         font-weight: 500;
     }
@@ -58,7 +60,7 @@ st.markdown(
     }
     .funnel-bar-bg {
         flex: 1;
-        background: #252836;
+        background: #eef0f7;
         border-radius: 4px;
         height: 32px;
         position: relative;
@@ -72,59 +74,59 @@ st.markdown(
     .funnel-label {
         font-family: 'DM Mono', monospace;
         font-size: 12px;
-        color: #adb5cc;
+        color: #4a5068;
         min-width: 120px;
     }
     .funnel-count {
         font-family: 'DM Mono', monospace;
         font-size: 13px;
-        color: #e8eaf0;
+        color: #1a1d27;
         min-width: 60px;
         text-align: right;
     }
     .funnel-pct {
         font-family: 'DM Mono', monospace;
         font-size: 11px;
-        color: #7b8299;
+        color: #6b7390;
         min-width: 48px;
         text-align: right;
     }
     .drop-arrow {
         font-size: 11px;
-        color: #ff6b6b;
+        color: #e05252;
         font-family: 'DM Mono', monospace;
         padding-left: 136px;
         margin-bottom: 6px;
     }
     /* Sidebar */
     [data-testid="stSidebar"] {
-        background: #0d0f14;
-        border-right: 1px solid #1e2030;
+        background: #ffffff;
+        border-right: 1px solid #e2e5ef;
     }
     [data-testid="stSidebar"] .stSelectbox label,
     [data-testid="stSidebar"] .stMultiSelect label,
-    [data-testid="stSidebar"] .stDateInput label { color: #7b8299; font-size: 12px; }
+    [data-testid="stSidebar"] .stDateInput label { color: #6b7390; font-size: 12px; }
 
     /* Tabs */
-    .stTabs [data-baseweb="tab-list"] { background: transparent; border-bottom: 1px solid #252836; }
-    .stTabs [data-baseweb="tab"] { color: #7b8299; font-size: 13px; letter-spacing: .04em; padding: 8px 20px; }
-    .stTabs [aria-selected="true"] { color: #e8eaf0; border-bottom: 2px solid #5c8df6; }
+    .stTabs [data-baseweb="tab-list"] { background: transparent; border-bottom: 1px solid #e2e5ef; }
+    .stTabs [data-baseweb="tab"] { color: #6b7390; font-size: 13px; letter-spacing: .04em; padding: 8px 20px; }
+    .stTabs [aria-selected="true"] { color: #1a1d27; border-bottom: 2px solid #4a7af6; }
 
     /* Section headers */
     .section-header {
         font-size: 11px;
         letter-spacing: .12em;
         text-transform: uppercase;
-        color: #7b8299;
+        color: #6b7390;
         font-weight: 500;
         margin: 32px 0 16px;
     }
 
     /* Divider */
-    hr { border-color: #1e2030; }
+    hr { border-color: #e2e5ef; }
 
     /* Dataframe */
-    [data-testid="stDataFrame"] { border: 1px solid #252836; border-radius: 8px; overflow: hidden; }
+    [data-testid="stDataFrame"] { border: 1px solid #e2e5ef; border-radius: 8px; overflow: hidden; }
 
     /* Download button */
     .stDownloadButton button {
@@ -426,8 +428,8 @@ def render_funnel_html(funnel: dict) -> str:
 
 # ── Main ───────────────────────────────────────────────────────────────────
 
-st.markdown('<h2 style="font-family:DM Mono,monospace;font-size:22px;color:#e8eaf0;margin-bottom:4px;">Activity Funnel Report</h2>', unsafe_allow_html=True)
-st.markdown('<p style="color:#7b8299;font-size:13px;margin-bottom:0;">System vs Agent pipeline — upload activity log CSVs to generate the funnel.</p>', unsafe_allow_html=True)
+st.markdown('<h2 style="font-family:DM Mono,monospace;font-size:22px;color:#1a1d27;margin-bottom:4px;">Activity Funnel Report</h2>', unsafe_allow_html=True)
+st.markdown('<p style="color:#6b7390;font-size:13px;margin-bottom:0;">System vs Agent pipeline — upload activity log CSVs to generate the funnel.</p>', unsafe_allow_html=True)
 
 uploaded_files = st.file_uploader(
     "",
@@ -448,7 +450,7 @@ if df.empty:
 
 # ── Sidebar filters ────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown('<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#7b8299;margin-bottom:16px;font-weight:500;">Filters</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6b7390;margin-bottom:16px;font-weight:500;">Filters</div>', unsafe_allow_html=True)
 
     if df["EventDate"].notna().any():
         min_date = df["EventDate"].dropna().min()
@@ -469,9 +471,9 @@ with st.sidebar:
     selected_sources = st.multiselect("Action source", sources)
 
     st.divider()
-    st.markdown('<div style="font-size:11px;color:#7b8299;">Files loaded</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:11px;color:#6b7390;">Files loaded</div>', unsafe_allow_html=True)
     for f in uploaded_files:
-        st.markdown(f'<div style="font-size:12px;color:#adb5cc;font-family:DM Mono,monospace;">📄 {f.name}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-size:12px;color:#4a5068;font-family:DM Mono,monospace;">📄 {f.name}</div>', unsafe_allow_html=True)
 
 # ── Apply filters ──────────────────────────────────────────────────────────
 filtered = df.copy()
@@ -558,17 +560,17 @@ with tab1:
                 pad=18, thickness=18,
                 label=node_labels,
                 color=node_colors,
-                line=dict(color="#0d0f14", width=1),
+                line=dict(color="#ffffff", width=1),
             ),
             link=dict(source=sources_s, target=targets_s, value=values_s, color=link_colors),
         ))
         fig_sankey.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="DM Mono", color="#adb5cc", size=11),
+            font=dict(family="DM Mono", color="#4a5068", size=11),
             margin=dict(l=10, r=10, t=30, b=10),
             height=400,
-            title=dict(text="Flow Diagram", font=dict(color="#7b8299", size=11), x=0),
+            title=dict(text="Flow Diagram", font=dict(color="#6b7390", size=11), x=0),
         )
         st.plotly_chart(fig_sankey, use_container_width=True)
 
@@ -626,9 +628,9 @@ with tab2:
         )
         fig_vol.update_layout(
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="DM Mono", color="#adb5cc", size=11),
-            legend=dict(font=dict(color="#adb5cc"), bgcolor="rgba(0,0,0,0)"),
-            xaxis=dict(gridcolor="#1e2030"), yaxis=dict(gridcolor="#1e2030"),
+            font=dict(family="DM Mono", color="#4a5068", size=11),
+            legend=dict(font=dict(color="#4a5068"), bgcolor="rgba(0,0,0,0)"),
+            xaxis=dict(gridcolor="#e2e5ef"), yaxis=dict(gridcolor="#e2e5ef"),
             height=420, legend_title_text="",
         )
         st.plotly_chart(fig_vol, use_container_width=True)
@@ -653,9 +655,9 @@ with tab2:
             fig_cum.update_traces(line_color="#4ade80", fillcolor="rgba(74,222,128,.15)")
             fig_cum.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="DM Mono", color="#adb5cc", size=11),
-                xaxis=dict(gridcolor="#1e2030"), yaxis=dict(gridcolor="#1e2030"),
-                height=320, title_font_color="#7b8299", title_font_size=11,
+                font=dict(family="DM Mono", color="#4a5068", size=11),
+                xaxis=dict(gridcolor="#e2e5ef"), yaxis=dict(gridcolor="#e2e5ef"),
+                height=320, title_font_color="#6b7390", title_font_size=11,
             )
             st.plotly_chart(fig_cum, use_container_width=True)
     else:
@@ -694,9 +696,9 @@ with tab3:
             )
             fig2.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="DM Mono", color="#adb5cc", size=11),
-                legend=dict(font=dict(color="#adb5cc"), bgcolor="rgba(0,0,0,0)"),
-                xaxis=dict(gridcolor="#1e2030"), yaxis=dict(gridcolor="#1e2030"),
+                font=dict(family="DM Mono", color="#4a5068", size=11),
+                legend=dict(font=dict(color="#4a5068"), bgcolor="rgba(0,0,0,0)"),
+                xaxis=dict(gridcolor="#e2e5ef"), yaxis=dict(gridcolor="#e2e5ef"),
                 height=360, legend_title_text="",
             )
             st.plotly_chart(fig2, use_container_width=True)
