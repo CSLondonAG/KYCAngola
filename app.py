@@ -386,22 +386,21 @@ def pct(num, denom):
 
 FUNNEL_COLORS = {
     "entered":   "#5c8df6",
-    "pending":   "#a78bfa",
     "reviewed":  "#38bdf8",
     "approved":  "#4ade80",
     "rejected":  "#f87171",
     "withdrawn": "#fb923c",
+    "pending":   "#a78bfa",
     "awaiting":  "#fbbf24",
 }
 
 FUNNEL_STAGES = [
     ("entered",   "All Users Entered"),
-    ("pending",   "Pending"),
     ("reviewed",  "Agent Reviewed"),
     ("approved",  "Approved"),
     ("rejected",  "Rejected"),
     ("withdrawn", "Withdrawn"),
-    ("awaiting",  "Awaiting Review (no outcome yet)"),
+    ("pending",   "Pending (no outcome yet)"),
 ]
 
 
@@ -416,7 +415,7 @@ def render_funnel_html(funnel: dict) -> str:
         pct_str = f"{bar_pct:.1f}%"
         color = FUNNEL_COLORS.get(key, "#5c8df6")
 
-        if prev_key and key not in ("rejected", "withdrawn", "awaiting"):
+        if prev_key and key not in ("rejected", "withdrawn", "pending"):
             prev_val = funnel.get(prev_key, 0)
             drop = prev_val - val
             drop_pct = pct(drop, prev_val) * 100 if prev_val else 0
@@ -433,7 +432,7 @@ def render_funnel_html(funnel: dict) -> str:
             <div class="funnel-pct">{pct_str}</div>
         </div>""")
 
-        if key not in ("rejected", "withdrawn", "awaiting"):
+        if key not in ("rejected", "withdrawn", "pending"):
             prev_key = key
 
     return f'<div class="funnel-card">{"".join(rows)}</div>'
@@ -509,24 +508,25 @@ filtered_summary = latest_user_summary(filtered)
 funnel = build_funnel(filtered)
 
 # ── KPI row ────────────────────────────────────────────────────────────────
-col1, col2, col3, col4, col5 = st.columns(5)
+col1, col2, col3, col4 = st.columns(4)
 
-entered  = funnel.get("entered", 0)
-pending  = funnel.get("pending", 0)
-reviewed = funnel.get("reviewed", 0)
-approved = funnel.get("approved", 0)
-awaiting = funnel.get("awaiting", 0)
+entered        = funnel.get("entered", 0)
+pending        = funnel.get("pending", 0)
+reviewed       = funnel.get("reviewed", 0)
+approved       = funnel.get("approved", 0)
+rejected       = funnel.get("rejected", 0)
+withdrawn      = funnel.get("withdrawn", 0)
+awaiting       = funnel.get("awaiting", 0)
+agent_reviewed = approved + rejected
 
 with col1:
     st.metric("Total Users", f"{entered:,}")
 with col2:
-    st.metric("Pending", f"{pending:,}", f"{pct(pending, entered):.0%} of total")
+    st.metric("Agent Reviewed", f"{agent_reviewed:,}", f"{pct(agent_reviewed, entered):.0%} of total")
 with col3:
-    st.metric("Agent Reviewed", f"{reviewed:,}", f"{pct(reviewed, pending):.0%} of pending")
+    st.metric("Approved", f"{approved:,}", f"{pct(approved, agent_reviewed):.0%} of reviewed")
 with col4:
-    st.metric("Approved", f"{approved:,}", f"{pct(approved, reviewed):.0%} of reviewed")
-with col5:
-    st.metric("Awaiting Review", f"{awaiting:,}", f"{pct(awaiting, pending):.0%} not actioned")
+    st.metric("Rejected", f"{rejected:,}", f"{pct(rejected, agent_reviewed):.0%} of reviewed")
 
 st.markdown("---")
 
@@ -534,45 +534,43 @@ st.markdown("---")
 tab1, tab2, tab3, tab4 = st.tabs(["📐 Funnel", "📈 Volume Over Time", "👤 Agent Activity", "🔍 User Lookup"])
 
 with tab1:
-    if True:
-        entered_n   = funnel.get("entered", 0)
-        pending_n   = funnel.get("pending", 0)
-        reviewed_n  = funnel.get("reviewed", 0)
-        approved_n  = funnel.get("approved", 0)
-        rejected_n  = funnel.get("rejected", 0)
-        withdrawn_n = funnel.get("withdrawn", 0)
-        awaiting_n  = funnel.get("awaiting", 0)
+    entered_n   = funnel.get("entered", 0)
+    pending_n   = funnel.get("pending", 0)
+    reviewed_n  = funnel.get("reviewed", 0)
+    approved_n  = funnel.get("approved", 0)
+    rejected_n  = funnel.get("rejected", 0)
+    withdrawn_n = funnel.get("withdrawn", 0)
+    awaiting_n  = funnel.get("awaiting", 0)
 
-        node_labels = ["Entered", "Pending", "Reviewed", "Approved", "Rejected", "Withdrawn", "Awaiting"]
-        node_colors = ["#5c8df6", "#a78bfa", "#38bdf8", "#4ade80", "#f87171", "#fb923c", "#fbbf24"]
+    node_labels = ["Entered", "Reviewed", "Approved", "Rejected", "Withdrawn", "Pending"]
+    node_colors = ["#5c8df6", "#38bdf8", "#4ade80", "#f87171", "#fb923c", "#a78bfa"]
 
-        sources_s = [0, 1, 2, 2, 2, 1]
-        targets_s = [1, 2, 3, 4, 5, 6]
-        values_s  = [
-            max(pending_n, 0),
-            max(reviewed_n, 0),
-            max(approved_n, 0),
-            max(rejected_n, 0),
-            max(withdrawn_n, 0),
-            max(awaiting_n, 0),
-        ]
-        link_colors = ["rgba(167,139,250,.35)", "rgba(56,189,248,.35)",
-                       "rgba(74,222,128,.35)", "rgba(248,113,113,.35)",
-                       "rgba(251,146,60,.35)", "rgba(251,191,36,.35)"]
+    sources_s = [0, 1, 1, 1, 0]
+    targets_s = [1, 2, 3, 4, 5]
+    values_s  = [
+        max(agent_reviewed, 0),
+        max(approved_n, 0),
+        max(rejected_n, 0),
+        max(withdrawn_n, 0),
+        max(pending_n, 0),
+    ]
+    link_colors = ["rgba(56,189,248,.35)",
+                   "rgba(74,222,128,.35)", "rgba(248,113,113,.35)",
+                   "rgba(251,146,60,.35)", "rgba(167,139,250,.35)"]
 
-        fig_sankey = go.Figure(go.Sankey(
-            arrangement="snap",
-            node=dict(pad=18, thickness=18, label=node_labels, color=node_colors,
-                      line=dict(color="#ffffff", width=1)),
-            link=dict(source=sources_s, target=targets_s, value=values_s, color=link_colors),
-        ))
-        fig_sankey.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="DM Mono", color="#4a5068", size=11),
-            margin=dict(l=10, r=10, t=30, b=10), height=400,
-            title=dict(text="Flow Diagram", font=dict(color="#6b7390", size=11), x=0),
-        )
-        st.plotly_chart(fig_sankey, width="stretch")
+    fig_sankey = go.Figure(go.Sankey(
+        arrangement="snap",
+        node=dict(pad=18, thickness=18, label=node_labels, color=node_colors,
+                  line=dict(color="#ffffff", width=1)),
+        link=dict(source=sources_s, target=targets_s, value=values_s, color=link_colors),
+    ))
+    fig_sankey.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="DM Mono", color="#4a5068", size=11),
+        margin=dict(l=10, r=10, t=30, b=10), height=400,
+        title=dict(text="Flow Diagram", font=dict(color="#6b7390", size=11), x=0),
+    )
+    st.plotly_chart(fig_sankey, width="stretch")
 
     st.markdown('<div class="section-header">Stage Distribution</div>', unsafe_allow_html=True)
     if not filtered_summary.empty:
@@ -586,21 +584,19 @@ with tab1:
     st.markdown('<div class="section-header">Conversion Rates</div>', unsafe_allow_html=True)
     conv_data = {
         "Metric": [
-            "Pending → Reviewed",
+            "Total → Agent Reviewed",
             "Reviewed → Approved",
             "Reviewed → Rejected",
             "Reviewed → Withdrawn",
-            "Pending, No Outcome Yet",
         ],
         "Rate": [
-            f"{pct(reviewed_n, pending_n):.1%}",
-            f"{pct(approved_n, reviewed_n):.1%}",
-            f"{pct(rejected_n, reviewed_n):.1%}",
-            f"{pct(withdrawn_n, reviewed_n):.1%}",
-            f"{pct(awaiting_n, pending_n):.1%}",
+            f"{pct(agent_reviewed, entered_n):.1%}",
+            f"{pct(approved_n, agent_reviewed):.1%}",
+            f"{pct(rejected_n, agent_reviewed):.1%}",
+            f"{pct(withdrawn_n, agent_reviewed):.1%}",
         ],
-        "Numerator":   [reviewed_n, approved_n, rejected_n, withdrawn_n, awaiting_n],
-        "Denominator": [pending_n, reviewed_n, reviewed_n, reviewed_n, pending_n],
+        "Numerator":   [agent_reviewed, approved_n, rejected_n, withdrawn_n],
+        "Denominator": [entered_n, agent_reviewed, agent_reviewed, agent_reviewed],
     }
     st.dataframe(pd.DataFrame(conv_data), width="stretch", hide_index=True)
 
@@ -745,12 +741,12 @@ funnel_df = pd.DataFrame([
 excel_bytes = to_excel_bytes({
     "Funnel Summary": funnel_df,
     "Conversion Rates": pd.DataFrame({
-        "Metric": ["Pending → Reviewed", "Reviewed → Approved", "Reviewed → Rejected", "Pending Not Actioned"],
+        "Metric": ["Total → Reviewed", "Reviewed → Approved", "Reviewed → Rejected", "Reviewed → Withdrawn"],
         "Rate": [
-            f"{pct(reviewed_n, pending_n):.1%}",
-            f"{pct(approved_n, reviewed_n):.1%}",
-            f"{pct(rejected_n, reviewed_n):.1%}",
-            f"{pct(awaiting_n, pending_n):.1%}",
+            f"{pct(agent_reviewed, entered):.1%}",
+            f"{pct(approved, agent_reviewed):.1%}",
+            f"{pct(rejected, agent_reviewed):.1%}",
+            f"{pct(withdrawn, agent_reviewed):.1%}",
         ],
     }),
     "Filtered Logs": filtered.drop(columns=["EventWeek", "EventMonth"], errors="ignore"),
