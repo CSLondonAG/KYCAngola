@@ -434,7 +434,6 @@ def render_funnel_html(funnel: dict) -> str:
 
     html = f"""
     <div class="funnel-card">
-        <div class="funnel-title">Conversion Funnel — unique users per stage</div>
         {"".join(rows)}
     </div>"""
     return html
