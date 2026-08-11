@@ -253,9 +253,6 @@ def process_files(files):
     if date_col:
         df["RawDate"] = df[date_col]
         df["EventDateTime"] = pd.to_datetime(df[date_col], format="%d/%m/%Y %H:%M", errors="coerce")
-        mask = df["EventDateTime"].isna() & df[date_col].notna()
-        if mask.any():
-            df.loc[mask, "EventDateTime"] = pd.to_datetime(df.loc[mask, date_col], dayfirst=True, errors="coerce")
         df["EventDate"] = df["EventDateTime"].dt.date
         df["EventWeek"] = df["EventDateTime"].dt.to_period("W").apply(lambda p: p.start_time.date() if pd.notna(p) else None)
         df["EventMonth"] = df["EventDateTime"].dt.to_period("M").apply(lambda p: p.start_time.date() if pd.notna(p) else None)
