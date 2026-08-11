@@ -1,4 +1,5 @@
 import io
+import os
 import re
 from datetime import datetime
 
@@ -150,16 +151,14 @@ st.markdown(
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
-def read_uploaded_csv(file):
+def read_csv_file(path):
     encodings = ["utf-8", "utf-8-sig", "cp1252", "latin-1"]
     for enc in encodings:
         try:
-            file.seek(0)
-            return pd.read_csv(file, encoding=enc)
+            return pd.read_csv(path, encoding=enc)
         except Exception:
             continue
-    file.seek(0)
-    return pd.read_csv(file)
+    return pd.read_csv(path)
 
 
 def extract_user_id(value):
@@ -208,8 +207,9 @@ def classify_event(row):
 def process_files(files):
     frames = []
     for file in files:
-        df = read_uploaded_csv(file)
-        df["SourceFile"] = file.name
+        path = str(file)
+        df = read_csv_file(path)
+        df["SourceFile"] = os.path.basename(path)
         frames.append(df)
 
     if not frames:
@@ -443,20 +443,25 @@ def render_funnel_html(funnel: dict) -> str:
 # ── Main ───────────────────────────────────────────────────────────────────
 
 st.markdown('<h2 style="font-family:DM Mono,monospace;font-size:22px;color:#1a1d27;margin-bottom:4px;">Activity Funnel Report</h2>', unsafe_allow_html=True)
-st.markdown('<p style="color:#6b7390;font-size:13px;margin-bottom:0;">System vs Agent pipeline — upload activity log CSVs to generate the funnel.</p>', unsafe_allow_html=True)
+st.markdown('<p style="color:#6b7390;font-size:13px;margin-bottom:0;">System vs Agent pipeline — reads activity log CSVs from the <code>data/</code> folder.</p>', unsafe_allow_html=True)
 
-uploaded_files = st.file_uploader(
-    "",
-    type=["csv"],
-    accept_multiple_files=True,
-    label_visibility="collapsed",
-)
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
-if not uploaded_files:
-    st.info("⬆️  Upload one or more activity log CSV files to begin.")
+if not os.path.isdir(DATA_DIR):
+    st.error(f"Data directory not found: `{DATA_DIR}`. Create a `data/` folder next to `app.py` and place your CSV files there.")
     st.stop()
 
-df = process_files(uploaded_files)
+csv_files = sorted([
+    os.path.join(DATA_DIR, f)
+    for f in os.listdir(DATA_DIR)
+    if f.lower().endswith(".csv")
+])
+
+if not csv_files:
+    st.info(f"No CSV files found in `{DATA_DIR}`. Add activity log CSVs there and refresh.")
+    st.stop()
+
+df = process_files(csv_files)
 
 if df.empty:
     st.error("No usable rows found in the uploaded files.")
@@ -486,8 +491,8 @@ with st.sidebar:
 
     st.divider()
     st.markdown('<div style="font-size:11px;color:#6b7390;">Files loaded</div>', unsafe_allow_html=True)
-    for f in uploaded_files:
-        st.markdown(f'<div style="font-size:12px;color:#4a5068;font-family:DM Mono,monospace;">📄 {f.name}</div>', unsafe_allow_html=True)
+    for f in csv_files:
+        st.markdown(f'<div style="font-size:12px;color:#4a5068;font-family:DM Mono,monospace;">📄 {os.path.basename(f)}</div>', unsafe_allow_html=True)
 
 # ── Apply filters ──────────────────────────────────────────────────────────
 filtered = df.copy()
