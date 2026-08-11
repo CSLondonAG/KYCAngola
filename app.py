@@ -152,13 +152,44 @@ st.markdown(
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def read_csv_file(path):
+    """
+    Parse activity log CSVs using csv.reader to handle embedded commas in
+    the Message field. The format is always:
+      col[0]       = Date
+      col[1:-1]    = Message parts (joined with ',')
+      col[-1]      = Admin
+    Rows with fewer than 3 fields are skipped.
+    """
     encodings = ["utf-8", "utf-8-sig", "cp1252", "latin-1"]
+    raw = None
     for enc in encodings:
         try:
-            return pd.read_csv(path, encoding=enc)
+            with open(path, "r", encoding=enc, newline="") as f:
+                raw = f.read()
+            break
         except Exception:
             continue
-    return pd.read_csv(path)
+    if raw is None:
+        return pd.DataFrame()
+
+    import csv, io
+    reader = csv.reader(io.StringIO(raw))
+    rows = []
+    for i, row in enumerate(reader):
+        if i == 0:
+            continue  # skip header
+        if len(row) < 3:
+            continue
+        date    = row[0].strip()
+        admin   = row[-1].strip()
+        message = ",".join(row[1:-1]).strip()
+        # 3-field rows: "Date, Message text,admin" — admin is inside last segment
+        if not admin and "," in message:
+            last_comma = message.rfind(",")
+            admin   = message[last_comma + 1:].strip()
+            message = message[:last_comma].strip()
+        rows.append({"Date": date, "Message": message, "Admin": admin})
+    return pd.DataFrame(rows)
 
 
 def extract_user_id(value):
