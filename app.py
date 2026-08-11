@@ -24,6 +24,7 @@ st.markdown(
 
     .stApp { background: #f5f6fa; color: #1a1d27; }
 
+    /* Metric cards */
     [data-testid="metric-container"] {
         background: #ffffff;
         border: 1px solid #e2e5ef;
@@ -35,6 +36,7 @@ st.markdown(
     [data-testid="metric-container"] [data-testid="stMetricValue"] { font-family: 'DM Mono', monospace; font-size: 2rem; color: #1a1d27; }
     [data-testid="metric-container"] [data-testid="stMetricDelta"] { font-size: 12px; }
 
+    /* Funnel card */
     .funnel-card {
         background: #ffffff;
         border: 1px solid #e2e5ef;
@@ -97,6 +99,7 @@ st.markdown(
         padding-left: 136px;
         margin-bottom: 6px;
     }
+    /* Sidebar */
     [data-testid="stSidebar"] {
         background: #ffffff;
         border-right: 1px solid #e2e5ef;
@@ -105,10 +108,12 @@ st.markdown(
     [data-testid="stSidebar"] .stMultiSelect label,
     [data-testid="stSidebar"] .stDateInput label { color: #6b7390; font-size: 12px; }
 
+    /* Tabs */
     .stTabs [data-baseweb="tab-list"] { background: transparent; border-bottom: 1px solid #e2e5ef; }
     .stTabs [data-baseweb="tab"] { color: #6b7390; font-size: 13px; letter-spacing: .04em; padding: 8px 20px; }
     .stTabs [aria-selected="true"] { color: #1a1d27; border-bottom: 2px solid #4a7af6; }
 
+    /* Section headers */
     .section-header {
         font-size: 11px;
         letter-spacing: .12em;
@@ -118,10 +123,13 @@ st.markdown(
         margin: 32px 0 16px;
     }
 
+    /* Divider */
     hr { border-color: #e2e5ef; }
 
+    /* Dataframe */
     [data-testid="stDataFrame"] { border: 1px solid #e2e5ef; border-radius: 8px; overflow: hidden; }
 
+    /* Download button */
     .stDownloadButton button {
         background: #5c8df6;
         color: #fff;
@@ -133,6 +141,7 @@ st.markdown(
     }
     .stDownloadButton button:hover { background: #4a7ae0; }
 
+    /* Hide default streamlit branding */
     #MainMenu, footer { visibility: hidden; }
     </style>
     """,
@@ -151,7 +160,6 @@ def read_csv_file(path):
       col[-1]      = Admin
     Rows with fewer than 3 fields are skipped.
     """
-    import csv
     encodings = ["utf-8", "utf-8-sig", "cp1252", "latin-1"]
     raw = None
     for enc in encodings:
@@ -164,16 +172,18 @@ def read_csv_file(path):
     if raw is None:
         return pd.DataFrame()
 
+    import csv, io
     reader = csv.reader(io.StringIO(raw))
     rows = []
     for i, row in enumerate(reader):
         if i == 0:
-            continue
+            continue  # skip header
         if len(row) < 3:
             continue
         date    = row[0].strip()
         admin   = row[-1].strip()
         message = ",".join(row[1:-1]).strip()
+        # 3-field rows: "Date, Message text,admin" — admin is inside last segment
         if not admin and "," in message:
             last_comma = message.rfind(",")
             admin   = message[last_comma + 1:].strip()
@@ -242,7 +252,17 @@ def process_files(files):
     date_col = next((c for c in ["Date", "Timestamp", "Created", "CreatedDate", "ActivityDate"] if c in df.columns), None)
     if date_col:
         df["RawDate"] = df[date_col]
-        df["EventDateTime"] = pd.to_datetime(df[date_col], format="%d/%m/%Y %H:%M", errors="coerce")
+        # Parse dates per-row: with seconds = MM/DD/YYYY HH:MM:SS, without = MM/DD/YYYY HH:MM
+        def _parse_date(val):
+            if pd.isna(val) or str(val).strip() == "":
+                return pd.NaT
+            s = str(val).strip()
+            fmt = "%m/%d/%Y %H:%M:%S" if s.count(":") == 2 else "%m/%d/%Y %H:%M"
+            try:
+                return pd.to_datetime(s, format=fmt)
+            except Exception:
+                return pd.NaT
+        df["EventDateTime"] = df[date_col].apply(_parse_date)
         df["EventDate"] = df["EventDateTime"].dt.date
         df["EventWeek"] = df["EventDateTime"].dt.to_period("W").apply(lambda p: p.start_time.date() if pd.notna(p) else None)
         df["EventMonth"] = df["EventDateTime"].dt.to_period("M").apply(lambda p: p.start_time.date() if pd.notna(p) else None)
@@ -278,12 +298,25 @@ def process_files(files):
 
 
 def build_funnel(df):
+    """
+    Build funnel metrics tracking each unique user through pipeline stages.
+
+    For users who ultimately reach Approved status, multiple system-generated
+    Pending events are collapsed to one — only their first pending event counts.
+    This prevents re-pended approved users from inflating the Pending stage
+    and distorting downstream conversion rates.
+    """
     if df.empty:
         return {}
 
     all_users = df["UserID"].dropna().nunique()
+
+    # Users whose final recorded outcome is Approved
     approved_user_ids = set(df.loc[df["IsApproval"], "UserID"].dropna().unique())
 
+    # Deduplicated pending view:
+    #   approved users -> keep only their earliest pending event (one per user)
+    #   everyone else  -> keep as-is
     pending_rows = df.loc[df["IsSystemUpdate"] & df["IsPending"]].copy()
     approved_pending = (
         pending_rows[pending_rows["UserID"].isin(approved_user_ids)]
@@ -293,15 +326,30 @@ def build_funnel(df):
     other_pending = pending_rows[~pending_rows["UserID"].isin(approved_user_ids)]
     deduped_pending = pd.concat([approved_pending, other_pending], ignore_index=True)
 
+    # Stage 1 — entered the system
     entered = all_users
+
+    # Stage 2 — system-flagged pending (approved users counted once each)
     pending_users = set(deduped_pending["UserID"].dropna().unique())
     pending_n = len(pending_users)
+
+    # Stage 3 — agent touched the user at any point
     actioned_users = set(df.loc[df["IsManualAction"], "UserID"].dropna().unique())
+
+    # Stage 4 — reviewed = pending AND actioned
     reviewed_ids = pending_users & actioned_users
     reviewed_n = len(reviewed_ids)
+
+    # Stage 5 — approved
     approved_n = len(approved_user_ids)
+
+    # Stage 6a — rejected
     rejected_n = df.loc[df["IsRejected"], "UserID"].dropna().nunique()
+
+    # Stage 6b — withdrawn
     withdrawn_n = df.loc[df["IsWithdrawn"], "UserID"].dropna().nunique()
+
+    # Awaiting review — pending but no agent action yet
     awaiting_n = len(pending_users - actioned_users)
 
     return {
@@ -403,6 +451,7 @@ def render_funnel_html(funnel: dict) -> str:
         pct_str = f"{bar_pct:.1f}%"
         color = FUNNEL_COLORS.get(key, "#5c8df6")
 
+        # Drop rate arrow vs previous main stage
         if prev_key and key not in ("rejected", "withdrawn", "awaiting"):
             prev_val = funnel.get(prev_key, 0)
             drop = prev_val - val
@@ -453,10 +502,10 @@ if not csv_files:
     st.info(f"No CSV files found in `{DATA_DIR}`. Add activity log CSVs there and refresh.")
     st.stop()
 
-df = process_files(tuple(csv_files))
+df = process_files(csv_files)
 
 if df.empty:
-    st.error("No usable rows found in the data folder.")
+    st.error("No usable rows found in the uploaded files.")
     st.stop()
 
 # ── Sidebar filters ────────────────────────────────────────────────────────
@@ -533,6 +582,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📐 Funnel", "📈 Volume Over Time", "👤 
 
 with tab1:
     if True:
+        # Sankey diagram
         node_labels = ["Entered", "Sys Pending", "Agent Reviewed", "Approved", "Rejected", "Withdrawn", "Awaiting Review"]
         node_colors = ["#5c8df6", "#a78bfa", "#38bdf8", "#4ade80", "#f87171", "#fb923c", "#fbbf24"]
 
@@ -579,6 +629,7 @@ with tab1:
         )
         st.plotly_chart(fig_sankey, width="stretch")
 
+    # Stage distribution table
     st.markdown('<div class="section-header">Stage Distribution</div>', unsafe_allow_html=True)
     if not filtered_summary.empty:
         stage_dist = (
@@ -590,6 +641,7 @@ with tab1:
         stage_dist["Share %"] = (stage_dist["Users"] / stage_dist["Users"].sum() * 100).round(1).astype(str) + "%"
         st.dataframe(stage_dist, width="stretch", hide_index=True)
 
+    # Conversion rates summary
     st.markdown('<div class="section-header">Conversion Rates</div>', unsafe_allow_html=True)
     conv_data = {
         "Metric": [
@@ -638,6 +690,7 @@ with tab2:
         )
         st.plotly_chart(fig_vol, width="stretch")
 
+        # Cumulative approved line
         approved_daily = (
             filtered[filtered["IsApproval"]]
             .groupby(gran_col, dropna=False)
@@ -731,6 +784,7 @@ with tab4:
 
             st.markdown('<div class="section-header">Event Timeline</div>', unsafe_allow_html=True)
 
+            # Build a simple timeline
             timeline_rows = []
             for _, row in user_history.iterrows():
                 timeline_rows.append({
