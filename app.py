@@ -145,11 +145,7 @@ st.markdown(
 def read_csv_file(path):
     """
     Parse activity log CSVs using csv.reader to handle embedded commas in
-    the Message field. The format is always:
-      col[0]       = Date
-      col[1:-1]    = Message parts (joined with ',')
-      col[-1]      = Admin
-    Rows with fewer than 3 fields are skipped.
+    the Message field. Format: col[0]=Date, col[1:-1]=Message, col[-1]=Admin.
     """
     import csv
     encodings = ["utf-8", "utf-8-sig", "cp1252", "latin-1"]
@@ -204,10 +200,15 @@ def extract_status_to(message):
 
 
 def classify_event(row):
-    actor = str(row.get("Admin", "")).strip()
+    actor = str(row.get("Admin", "")).strip().lower()
     status_to = str(row.get("StatusTo", "")).lower()
 
-    source = "System" if actor.lower() == "system" else ("Agent" if actor and actor.lower() != "nan" else "Unknown")
+    if actor in ("", "nan"):
+        source = "Unknown"
+    elif actor == "system":
+        source = "System"
+    else:
+        source = "Agent"
 
     if "approved" in status_to:
         event_type = "Approved"
@@ -239,10 +240,12 @@ def process_files(files):
 
     df = pd.concat(frames, ignore_index=True)
 
+    # Step 1: drop exact duplicate rows from the source logs
+    df = df.drop_duplicates()
+
     date_col = next((c for c in ["Date", "Timestamp", "Created", "CreatedDate", "ActivityDate"] if c in df.columns), None)
     if date_col:
         df["RawDate"] = df[date_col]
-        # Parse dates per-row: 2 colons = MM/DD/YYYY HH:MM:SS, 1 colon = MM/DD/YYYY HH:MM
         def _parse_date(val):
             if pd.isna(val) or str(val).strip() == "":
                 return pd.NaT
@@ -280,7 +283,7 @@ def process_files(files):
     df["IsPending"] = df["EventType"].eq("Pending")
     df["IsWithdrawn"] = df["EventType"].eq("Withdrawn")
 
-    # Deduplicate: keep only the last (most recent) event per user per status
+    # Step 2: keep only the last (most recent) event per user per status
     df = (
         df.sort_values("EventDateTime", na_position="last")
         .drop_duplicates(subset=["UserID", "EventType"], keep="last")
@@ -295,28 +298,30 @@ def build_funnel(df):
     if df.empty:
         return {}
 
-    all_users = df["UserID"].dropna().nunique()
-    approved_user_ids = set(df.loc[df["IsApproval"], "UserID"].dropna().unique())
+    # All unique users seen in the data
+    entered = df["UserID"].dropna().nunique()
 
-    pending_rows = df.loc[df["IsSystemUpdate"] & df["IsPending"]].copy()
-    approved_pending = (
-        pending_rows[pending_rows["UserID"].isin(approved_user_ids)]
-        .sort_values("EventDateTime")
-        .drop_duplicates(subset=["UserID"], keep="first")
-    )
-    other_pending = pending_rows[~pending_rows["UserID"].isin(approved_user_ids)]
-    deduped_pending = pd.concat([approved_pending, other_pending], ignore_index=True)
-
-    entered = all_users
-    pending_users = set(deduped_pending["UserID"].dropna().unique())
+    # Users who were set to Pending at any point
+    pending_users = set(df.loc[df["IsPending"], "UserID"].dropna().unique())
     pending_n = len(pending_users)
-    actioned_users = set(df.loc[df["IsManualAction"], "UserID"].dropna().unique())
-    reviewed_ids = pending_users & actioned_users
+
+    # Terminal outcomes per user
+    terminal_events = df[df["EventType"].isin(["Approved", "Rejected", "Withdrawn"])]
+    approved_user_ids = set(terminal_events.loc[terminal_events["IsApproval"], "UserID"].dropna().unique())
+    rejected_user_ids = set(terminal_events.loc[terminal_events["IsRejected"], "UserID"].dropna().unique())
+    withdrawn_user_ids = set(terminal_events.loc[terminal_events["IsWithdrawn"], "UserID"].dropna().unique())
+
+    # Reviewed = users who had Pending AND a terminal outcome
+    terminal_ids = approved_user_ids | rejected_user_ids | withdrawn_user_ids
+    reviewed_ids = pending_users & terminal_ids
     reviewed_n = len(reviewed_ids)
+
     approved_n = len(approved_user_ids)
-    rejected_n = df.loc[df["IsRejected"], "UserID"].dropna().nunique()
-    withdrawn_n = df.loc[df["IsWithdrawn"], "UserID"].dropna().nunique()
-    awaiting_n = len(pending_users - actioned_users)
+    rejected_n = len(rejected_user_ids)
+    withdrawn_n = len(withdrawn_user_ids)
+
+    # Awaiting = users with Pending but no terminal outcome yet
+    awaiting_n = len(pending_users - terminal_ids)
 
     return {
         "entered": entered,
@@ -382,13 +387,12 @@ def pct(num, denom):
     return num / denom if denom else 0
 
 
-# ── Render funnel HTML ─────────────────────────────────────────────────────
+# ── Funnel stage config ────────────────────────────────────────────────────
 
 FUNNEL_COLORS = {
     "entered":   "#5c8df6",
     "pending":   "#a78bfa",
-    "actioned":  "#38bdf8",
-    "reviewed":  "#34d399",
+    "reviewed":  "#38bdf8",
     "approved":  "#4ade80",
     "rejected":  "#f87171",
     "withdrawn": "#fb923c",
@@ -397,12 +401,12 @@ FUNNEL_COLORS = {
 
 FUNNEL_STAGES = [
     ("entered",   "All Users Entered"),
-    ("pending",   "System → Pending"),
+    ("pending",   "Pending"),
     ("reviewed",  "Agent Reviewed"),
     ("approved",  "Approved"),
     ("rejected",  "Rejected"),
     ("withdrawn", "Withdrawn"),
-    ("awaiting",  "Awaiting Review (no action yet)"),
+    ("awaiting",  "Awaiting Review (no outcome yet)"),
 ]
 
 
@@ -422,9 +426,7 @@ def render_funnel_html(funnel: dict) -> str:
             drop = prev_val - val
             drop_pct = pct(drop, prev_val) * 100 if prev_val else 0
             if drop > 0:
-                rows.append(
-                    f'<div class="drop-arrow">▼ {drop:,} dropped ({drop_pct:.1f}%)</div>'
-                )
+                rows.append(f'<div class="drop-arrow">▼ {drop:,} dropped ({drop_pct:.1f}%)</div>')
 
         rows.append(f"""
         <div class="funnel-step">
@@ -439,11 +441,7 @@ def render_funnel_html(funnel: dict) -> str:
         if key not in ("rejected", "withdrawn", "awaiting"):
             prev_key = key
 
-    html = f"""
-    <div class="funnel-card">
-        {"".join(rows)}
-    </div>"""
-    return html
+    return f'<div class="funnel-card">{"".join(rows)}</div>'
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
@@ -532,9 +530,9 @@ awaiting = funnel.get("awaiting", 0)
 with col1:
     st.metric("Total Users", f"{entered:,}")
 with col2:
-    st.metric("System Flagged", f"{pending:,}", f"{pct(pending, entered):.0%} of total")
+    st.metric("Pending", f"{pending:,}", f"{pct(pending, entered):.0%} of total")
 with col3:
-    st.metric("Agent Reviewed", f"{reviewed:,}", f"{pct(reviewed, pending):.0%} of flagged")
+    st.metric("Agent Reviewed", f"{reviewed:,}", f"{pct(reviewed, pending):.0%} of pending")
 with col4:
     st.metric("Approved", f"{approved:,}", f"{pct(approved, reviewed):.0%} of reviewed")
 with col5:
@@ -547,17 +545,16 @@ tab1, tab2, tab3, tab4 = st.tabs(["📐 Funnel", "📈 Volume Over Time", "👤 
 
 with tab1:
     if True:
-        node_labels = ["Entered", "Sys Pending", "Agent Reviewed", "Approved", "Rejected", "Withdrawn", "Awaiting Review"]
-        node_colors = ["#5c8df6", "#a78bfa", "#38bdf8", "#4ade80", "#f87171", "#fb923c", "#fbbf24"]
-
-        entered_n = funnel.get("entered", 0)
-        pending_n = funnel.get("pending", 0)
+        entered_n  = funnel.get("entered", 0)
+        pending_n  = funnel.get("pending", 0)
         reviewed_n = funnel.get("reviewed", 0)
         approved_n = funnel.get("approved", 0)
         rejected_n = funnel.get("rejected", 0)
         withdrawn_n = funnel.get("withdrawn", 0)
-        awaiting_n = funnel.get("awaiting", 0)
-        not_pending = max(entered_n - pending_n, 0)
+        awaiting_n  = funnel.get("awaiting", 0)
+
+        node_labels = ["Entered", "Pending", "Reviewed", "Approved", "Rejected", "Withdrawn", "Awaiting"]
+        node_colors = ["#5c8df6", "#a78bfa", "#38bdf8", "#4ade80", "#f87171", "#fb923c", "#fbbf24"]
 
         sources_s = [0, 1, 2, 2, 2, 1]
         targets_s = [1, 2, 3, 4, 5, 6]
@@ -575,20 +572,14 @@ with tab1:
 
         fig_sankey = go.Figure(go.Sankey(
             arrangement="snap",
-            node=dict(
-                pad=18, thickness=18,
-                label=node_labels,
-                color=node_colors,
-                line=dict(color="#ffffff", width=1),
-            ),
+            node=dict(pad=18, thickness=18, label=node_labels, color=node_colors,
+                      line=dict(color="#ffffff", width=1)),
             link=dict(source=sources_s, target=targets_s, value=values_s, color=link_colors),
         ))
         fig_sankey.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
             font=dict(family="DM Mono", color="#4a5068", size=11),
-            margin=dict(l=10, r=10, t=30, b=10),
-            height=400,
+            margin=dict(l=10, r=10, t=30, b=10), height=400,
             title=dict(text="Flow Diagram", font=dict(color="#6b7390", size=11), x=0),
         )
         st.plotly_chart(fig_sankey, width="stretch")
@@ -596,10 +587,8 @@ with tab1:
     st.markdown('<div class="section-header">Stage Distribution</div>', unsafe_allow_html=True)
     if not filtered_summary.empty:
         stage_dist = (
-            filtered_summary.groupby("Stage")
-            .size()
-            .reset_index(name="Users")
-            .sort_values("Users", ascending=False)
+            filtered_summary.groupby("Stage").size()
+            .reset_index(name="Users").sort_values("Users", ascending=False)
         )
         stage_dist["Share %"] = (stage_dist["Users"] / stage_dist["Users"].sum() * 100).round(1).astype(str) + "%"
         st.dataframe(stage_dist, width="stretch", hide_index=True)
@@ -607,11 +596,11 @@ with tab1:
     st.markdown('<div class="section-header">Conversion Rates</div>', unsafe_allow_html=True)
     conv_data = {
         "Metric": [
-            "System Flagged → Agent Reviewed",
-            "Agent Reviewed → Approved",
-            "Agent Reviewed → Rejected",
-            "Agent Reviewed → Withdrawn",
-            "System Flagged, No Action Yet",
+            "Pending → Reviewed",
+            "Reviewed → Approved",
+            "Reviewed → Rejected",
+            "Reviewed → Withdrawn",
+            "Pending, No Outcome Yet",
         ],
         "Rate": [
             f"{pct(reviewed_n, pending_n):.1%}",
@@ -620,7 +609,7 @@ with tab1:
             f"{pct(withdrawn_n, reviewed_n):.1%}",
             f"{pct(awaiting_n, pending_n):.1%}",
         ],
-        "Numerator": [reviewed_n, approved_n, rejected_n, withdrawn_n, awaiting_n],
+        "Numerator":   [reviewed_n, approved_n, rejected_n, withdrawn_n, awaiting_n],
         "Denominator": [pending_n, reviewed_n, reviewed_n, reviewed_n, pending_n],
     }
     st.dataframe(pd.DataFrame(conv_data), width="stretch", hide_index=True)
@@ -628,16 +617,13 @@ with tab1:
 
 with tab2:
     gran_col = {"Day": "EventDate", "Week": "EventWeek", "Month": "EventMonth"}[granularity]
-
     daily = (
         filtered.groupby([gran_col, "ActionSource", "EventType"], dropna=False)
-        .size()
-        .reset_index(name="Count")
+        .size().reset_index(name="Count")
     )
 
     if not daily.empty and daily[gran_col].notna().any():
         daily["Series"] = daily["ActionSource"] + " — " + daily["EventType"]
-
         fig_vol = px.bar(
             daily, x=gran_col, y="Count", color="Series", barmode="group",
             labels={gran_col: granularity, "Count": "Events"},
@@ -653,12 +639,9 @@ with tab2:
         st.plotly_chart(fig_vol, width="stretch")
 
         approved_daily = (
-            filtered[filtered["IsApproval"]]
-            .groupby(gran_col, dropna=False)
-            .size()
-            .reset_index(name="Approvals")
-            .dropna(subset=[gran_col])
-            .sort_values(gran_col)
+            filtered[filtered["IsApproval"]].groupby(gran_col, dropna=False)
+            .size().reset_index(name="Approvals")
+            .dropna(subset=[gran_col]).sort_values(gran_col)
         )
         if not approved_daily.empty:
             approved_daily["Cumulative Approvals"] = approved_daily["Approvals"].cumsum()
@@ -686,8 +669,7 @@ with tab3:
     with left_a:
         st.markdown('<div class="section-header">Agent Leaderboard</div>', unsafe_allow_html=True)
         agent_table = (
-            filtered[filtered["IsManualAction"]]
-            .groupby("Admin")
+            filtered[filtered["IsManualAction"]].groupby("Admin")
             .agg(
                 TotalActions=("Admin", "size"),
                 UniqueUsers=("UserID", "nunique"),
@@ -695,8 +677,7 @@ with tab3:
                 Rejections=("IsRejected", "sum"),
                 PendingActions=("IsPending", "sum"),
             )
-            .reset_index()
-            .sort_values("TotalActions", ascending=False)
+            .reset_index().sort_values("TotalActions", ascending=False)
         )
         if not agent_table.empty:
             agent_table["Approval Rate"] = (agent_table["Approvals"] / agent_table["TotalActions"]).map("{:.0%}".format)
@@ -736,7 +717,7 @@ with tab4:
         else:
             uid = user_history["UserID"].iloc[0]
             uref = user_history["UserRef"].iloc[0]
-            ustage = user_history.apply(lambda r: _assign_stage(r), axis=1).iloc[-1] if not user_history.empty else "—"
+            ustage = user_history.apply(lambda r: _assign_stage(r), axis=1).iloc[-1]
 
             m1, m2, m3 = st.columns(3)
             m1.metric("User ID", uid or "—")
@@ -744,16 +725,15 @@ with tab4:
             m3.metric("Current Stage", ustage)
 
             st.markdown('<div class="section-header">Event Timeline</div>', unsafe_allow_html=True)
-
             timeline_rows = []
             for _, row in user_history.iterrows():
                 timeline_rows.append({
                     "Date/Time": row.get("EventDateTime", ""),
-                    "Actor": row.get("Admin", ""),
-                    "Source": row.get("ActionSource", ""),
-                    "Event": row.get("EventType", ""),
-                    "Status": row.get("StatusTo", ""),
-                    "File": row.get("SourceFile", ""),
+                    "Actor":     row.get("Admin", ""),
+                    "Source":    row.get("ActionSource", ""),
+                    "Event":     row.get("EventType", ""),
+                    "Status":    row.get("StatusTo", ""),
+                    "File":      row.get("SourceFile", ""),
                 })
             st.dataframe(pd.DataFrame(timeline_rows), width="stretch", hide_index=True)
 
@@ -769,7 +749,7 @@ funnel_df = pd.DataFrame([
 excel_bytes = to_excel_bytes({
     "Funnel Summary": funnel_df,
     "Conversion Rates": pd.DataFrame({
-        "Metric": ["Flagged → Reviewed", "Reviewed → Approved", "Reviewed → Rejected", "Flagged Not Actioned"],
+        "Metric": ["Pending → Reviewed", "Reviewed → Approved", "Reviewed → Rejected", "Pending Not Actioned"],
         "Rate": [
             f"{pct(reviewed_n, pending_n):.1%}",
             f"{pct(approved_n, reviewed_n):.1%}",
