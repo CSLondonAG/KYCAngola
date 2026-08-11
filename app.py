@@ -391,7 +391,6 @@ FUNNEL_COLORS = {
     "rejected":  "#f87171",
     "withdrawn": "#fb923c",
     "pending":   "#a78bfa",
-    "awaiting":  "#fbbf24",
 }
 
 FUNNEL_STAGES = [
@@ -707,13 +706,15 @@ with tab4:
         if user_history.empty:
             st.info("No matching users found.")
         else:
-            uid   = user_history["UserID"].iloc[0]
-            uref  = user_history["UserRef"].iloc[0]
-            ustage = user_history.apply(lambda r: _assign_stage(r), axis=1).iloc[-1]
+            uid  = user_history["UserID"].iloc[0]
+            uref = user_history["UserRef"].iloc[0]
+            # Pull stage from summary — correctly aggregated across all events
+            user_summary_row = filtered_summary[filtered_summary["UserID"] == uid]
+            ustage = user_summary_row["Stage"].iloc[0] if not user_summary_row.empty else "—"
 
             m1, m2, m3 = st.columns(3)
             m1.metric("User ID", uid or "—")
-            m2.metric("Reference", uref or "—")
+            m2.metric("Reference", uref if uref and str(uref) not in ("nan", "None", "") else "—")
             m3.metric("Current Stage", ustage)
 
             st.markdown('<div class="section-header">Event Timeline</div>', unsafe_allow_html=True)
