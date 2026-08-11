@@ -282,6 +282,16 @@ def process_files(files):
     df = (
         df.sort_values("EventDateTime", na_position="last")
         .drop_duplicates(subset=["UserID", "EventType"], keep="last")
+        .reset_index(drop=True)
+    )
+
+    # Step 3: if a user has a terminal outcome (Approved/Rejected/Withdrawn),
+    # remove their Pending row — it is transitional, not a final state
+    terminal_user_ids = set(
+        df.loc[df["EventType"].isin(["Approved", "Rejected", "Withdrawn"]), "UserID"].dropna()
+    )
+    df = (
+        df[~((df["EventType"] == "Pending") & (df["UserID"].isin(terminal_user_ids)))]
         .sort_values("EventDateTime", na_position="last")
         .reset_index(drop=True)
     )
@@ -501,8 +511,8 @@ funnel = build_funnel(filtered)
 # ── KPI row ────────────────────────────────────────────────────────────────
 col1, col2, col3, col4, col5 = st.columns(5)
 
-entered = funnel.get("entered", 0)
-pending = funnel.get("pending", 0)
+entered  = funnel.get("entered", 0)
+pending  = funnel.get("pending", 0)
 reviewed = funnel.get("reviewed", 0)
 approved = funnel.get("approved", 0)
 awaiting = funnel.get("awaiting", 0)
@@ -525,11 +535,11 @@ tab1, tab2, tab3, tab4 = st.tabs(["📐 Funnel", "📈 Volume Over Time", "👤 
 
 with tab1:
     if True:
-        entered_n  = funnel.get("entered", 0)
-        pending_n  = funnel.get("pending", 0)
-        reviewed_n = funnel.get("reviewed", 0)
-        approved_n = funnel.get("approved", 0)
-        rejected_n = funnel.get("rejected", 0)
+        entered_n   = funnel.get("entered", 0)
+        pending_n   = funnel.get("pending", 0)
+        reviewed_n  = funnel.get("reviewed", 0)
+        approved_n  = funnel.get("approved", 0)
+        rejected_n  = funnel.get("rejected", 0)
         withdrawn_n = funnel.get("withdrawn", 0)
         awaiting_n  = funnel.get("awaiting", 0)
 
@@ -701,8 +711,8 @@ with tab4:
         if user_history.empty:
             st.info("No matching users found.")
         else:
-            uid = user_history["UserID"].iloc[0]
-            uref = user_history["UserRef"].iloc[0]
+            uid   = user_history["UserID"].iloc[0]
+            uref  = user_history["UserRef"].iloc[0]
             ustage = user_history.apply(lambda r: _assign_stage(r), axis=1).iloc[-1]
 
             m1, m2, m3 = st.columns(3)
@@ -721,6 +731,7 @@ with tab4:
                     "File":      row.get("SourceFile", ""),
                 })
             st.dataframe(pd.DataFrame(timeline_rows), width="stretch", hide_index=True)
+
 
 # ── Export ─────────────────────────────────────────────────────────────────
 st.markdown("---")
