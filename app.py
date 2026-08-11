@@ -539,12 +539,7 @@ st.markdown("---")
 tab1, tab2, tab3, tab4 = st.tabs(["📐 Funnel", "📈 Volume Over Time", "👤 Agent Activity", "🔍 User Lookup"])
 
 with tab1:
-    left_col, right_col = st.columns([3, 2])
-
-    with left_col:
-        st.markdown(render_funnel_html(funnel), unsafe_allow_html=True)
-
-    with right_col:
+    if True:
         # Sankey diagram
         node_labels = ["Entered", "Sys Pending", "Agent Reviewed", "Approved", "Rejected", "Withdrawn", "Awaiting Review"]
         node_colors = ["#5c8df6", "#a78bfa", "#38bdf8", "#4ade80", "#f87171", "#fb923c", "#fbbf24"]
