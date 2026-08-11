@@ -43,14 +43,6 @@ st.markdown(
         margin-bottom: 24px;
         box-shadow: 0 1px 4px rgba(0,0,0,.06);
     }
-    .funnel-title {
-        font-size: 11px;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        color: #6b7390;
-        margin-bottom: 20px;
-        font-weight: 500;
-    }
     .funnel-step {
         display: flex;
         align-items: center;
@@ -283,6 +275,9 @@ def process_files(files):
     df["IsPending"] = df["EventType"].eq("Pending")
     df["IsWithdrawn"] = df["EventType"].eq("Withdrawn")
 
+    # Exclude system-generated and unknown-source rows — agent actions only
+    df = df[df["ActionSource"].eq("Agent")].copy()
+
     # Step 2: keep only the last (most recent) event per user per status
     df = (
         df.sort_values("EventDateTime", na_position="last")
@@ -298,20 +293,16 @@ def build_funnel(df):
     if df.empty:
         return {}
 
-    # All unique users seen in the data
     entered = df["UserID"].dropna().nunique()
 
-    # Users who were set to Pending at any point
     pending_users = set(df.loc[df["IsPending"], "UserID"].dropna().unique())
     pending_n = len(pending_users)
 
-    # Terminal outcomes per user
     terminal_events = df[df["EventType"].isin(["Approved", "Rejected", "Withdrawn"])]
     approved_user_ids = set(terminal_events.loc[terminal_events["IsApproval"], "UserID"].dropna().unique())
     rejected_user_ids = set(terminal_events.loc[terminal_events["IsRejected"], "UserID"].dropna().unique())
     withdrawn_user_ids = set(terminal_events.loc[terminal_events["IsWithdrawn"], "UserID"].dropna().unique())
 
-    # Reviewed = users who had Pending AND a terminal outcome
     terminal_ids = approved_user_ids | rejected_user_ids | withdrawn_user_ids
     reviewed_ids = pending_users & terminal_ids
     reviewed_n = len(reviewed_ids)
@@ -319,8 +310,6 @@ def build_funnel(df):
     approved_n = len(approved_user_ids)
     rejected_n = len(rejected_user_ids)
     withdrawn_n = len(withdrawn_user_ids)
-
-    # Awaiting = users with Pending but no terminal outcome yet
     awaiting_n = len(pending_users - terminal_ids)
 
     return {
@@ -355,8 +344,6 @@ def latest_user_summary(df):
         .reset_index()
     )
     grouped["Stage"] = grouped.apply(_assign_stage, axis=1)
-    grouped["HasSystemAndAgent"] = (grouped["SystemUpdates"] > 0) & (grouped["ManualActions"] > 0)
-    grouped["AwaitingReview"] = (grouped["SystemUpdates"] > 0) & (grouped["ManualActions"] == 0)
     return grouped
 
 
@@ -370,9 +357,7 @@ def _assign_stage(row):
         return "↩️ Withdrawn"
     if row.get("ManualActions", 0) > 0:
         return "👤 Agent Actioned"
-    if row.get("SystemUpdates", 0) > 0:
-        return "⏳ Awaiting Review"
-    return "🔵 Entered"
+    return "⏳ Pending"
 
 
 def to_excel_bytes(sheets):
@@ -447,7 +432,7 @@ def render_funnel_html(funnel: dict) -> str:
 # ── Main ───────────────────────────────────────────────────────────────────
 
 st.markdown('<h2 style="font-family:DM Mono,monospace;font-size:22px;color:#1a1d27;margin-bottom:4px;">Activity Funnel Report</h2>', unsafe_allow_html=True)
-st.markdown('<p style="color:#6b7390;font-size:13px;margin-bottom:0;">System vs Agent pipeline — reads activity log CSVs from the <code>data/</code> folder.</p>', unsafe_allow_html=True)
+st.markdown('<p style="color:#6b7390;font-size:13px;margin-bottom:0;">Agent activity pipeline — reads activity log CSVs from the <code>data/</code> folder.</p>', unsafe_allow_html=True)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -490,9 +475,6 @@ with st.sidebar:
     event_types = sorted(df["EventType"].dropna().unique())
     selected_event_types = st.multiselect("Event types", event_types)
 
-    sources = sorted(df["ActionSource"].dropna().unique())
-    selected_sources = st.multiselect("Action source", sources)
-
     st.divider()
     st.markdown('<div style="font-size:11px;color:#6b7390;">Files loaded</div>', unsafe_allow_html=True)
     for f in csv_files:
@@ -512,8 +494,6 @@ if selected_agents:
     filtered = filtered[filtered["Admin"].isin(selected_agents)]
 if selected_event_types:
     filtered = filtered[filtered["EventType"].isin(selected_event_types)]
-if selected_sources:
-    filtered = filtered[filtered["ActionSource"].isin(selected_sources)]
 
 filtered_summary = latest_user_summary(filtered)
 funnel = build_funnel(filtered)
@@ -618,16 +598,18 @@ with tab1:
 with tab2:
     gran_col = {"Day": "EventDate", "Week": "EventWeek", "Month": "EventMonth"}[granularity]
     daily = (
-        filtered.groupby([gran_col, "ActionSource", "EventType"], dropna=False)
+        filtered.groupby([gran_col, "EventType"], dropna=False)
         .size().reset_index(name="Count")
     )
 
     if not daily.empty and daily[gran_col].notna().any():
-        daily["Series"] = daily["ActionSource"] + " — " + daily["EventType"]
         fig_vol = px.bar(
-            daily, x=gran_col, y="Count", color="Series", barmode="group",
-            labels={gran_col: granularity, "Count": "Events"},
-            color_discrete_sequence=["#5c8df6","#a78bfa","#38bdf8","#34d399","#f87171","#fb923c","#fbbf24"],
+            daily, x=gran_col, y="Count", color="EventType", barmode="group",
+            labels={gran_col: granularity, "Count": "Users"},
+            color_discrete_map={
+                "Approved": "#4ade80", "Rejected": "#f87171",
+                "Pending": "#a78bfa", "Withdrawn": "#fb923c", "Other": "#7b8299"
+            },
         )
         fig_vol.update_layout(
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
@@ -669,7 +651,7 @@ with tab3:
     with left_a:
         st.markdown('<div class="section-header">Agent Leaderboard</div>', unsafe_allow_html=True)
         agent_table = (
-            filtered[filtered["IsManualAction"]].groupby("Admin")
+            filtered.groupby("Admin")
             .agg(
                 TotalActions=("Admin", "size"),
                 UniqueUsers=("UserID", "nunique"),
@@ -685,18 +667,22 @@ with tab3:
 
     with right_a:
         st.markdown('<div class="section-header">Outcome Distribution</div>', unsafe_allow_html=True)
-        outcome = filtered.groupby(["ActionSource", "EventType"]).size().reset_index(name="Count")
+        outcome = filtered.groupby("EventType").size().reset_index(name="Count")
         if not outcome.empty:
             fig2 = px.bar(
-                outcome, x="EventType", y="Count", color="ActionSource", barmode="group",
-                color_discrete_map={"System": "#a78bfa", "Agent": "#38bdf8", "Unknown": "#7b8299"},
+                outcome, x="EventType", y="Count",
+                color="EventType",
+                color_discrete_map={
+                    "Approved": "#4ade80", "Rejected": "#f87171",
+                    "Pending": "#a78bfa", "Withdrawn": "#fb923c", "Other": "#7b8299"
+                },
             )
             fig2.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                 font=dict(family="DM Mono", color="#4a5068", size=11),
-                legend=dict(font=dict(color="#4a5068"), bgcolor="rgba(0,0,0,0)"),
+                showlegend=False,
                 xaxis=dict(gridcolor="#e2e5ef"), yaxis=dict(gridcolor="#e2e5ef"),
-                height=360, legend_title_text="",
+                height=360,
             )
             st.plotly_chart(fig2, width="stretch")
 
@@ -730,7 +716,6 @@ with tab4:
                 timeline_rows.append({
                     "Date/Time": row.get("EventDateTime", ""),
                     "Actor":     row.get("Admin", ""),
-                    "Source":    row.get("ActionSource", ""),
                     "Event":     row.get("EventType", ""),
                     "Status":    row.get("StatusTo", ""),
                     "File":      row.get("SourceFile", ""),
