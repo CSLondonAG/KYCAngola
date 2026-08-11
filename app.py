@@ -242,7 +242,7 @@ def process_files(files):
     date_col = next((c for c in ["Date", "Timestamp", "Created", "CreatedDate", "ActivityDate"] if c in df.columns), None)
     if date_col:
         df["RawDate"] = df[date_col]
-        # Parse dates per-row: 2 colons = HH:MM:SS (MM/DD/YYYY), 1 colon = HH:MM (MM/DD/YYYY)
+        # Parse dates per-row: 2 colons = MM/DD/YYYY HH:MM:SS, 1 colon = MM/DD/YYYY HH:MM
         def _parse_date(val):
             if pd.isna(val) or str(val).strip() == "":
                 return pd.NaT
@@ -279,6 +279,14 @@ def process_files(files):
     df["IsRejected"] = df["EventType"].eq("Rejected")
     df["IsPending"] = df["EventType"].eq("Pending")
     df["IsWithdrawn"] = df["EventType"].eq("Withdrawn")
+
+    # Deduplicate: keep only the last (most recent) event per user per status
+    df = (
+        df.sort_values("EventDateTime", na_position="last")
+        .drop_duplicates(subset=["UserID", "EventType"], keep="last")
+        .sort_values("EventDateTime", na_position="last")
+        .reset_index(drop=True)
+    )
 
     return df
 
