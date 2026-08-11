@@ -585,7 +585,7 @@ with tab1:
             height=400,
             title=dict(text="Flow Diagram", font=dict(color="#6b7390", size=11), x=0),
         )
-        st.plotly_chart(fig_sankey, use_container_width=True)
+        st.plotly_chart(fig_sankey, width="stretch")
 
     # Stage distribution table
     st.markdown('<div class="section-header">Stage Distribution</div>', unsafe_allow_html=True)
@@ -597,7 +597,7 @@ with tab1:
             .sort_values("Users", ascending=False)
         )
         stage_dist["Share %"] = (stage_dist["Users"] / stage_dist["Users"].sum() * 100).round(1).astype(str) + "%"
-        st.dataframe(stage_dist, use_container_width=True, hide_index=True)
+        st.dataframe(stage_dist, width="stretch", hide_index=True)
 
     # Conversion rates summary
     st.markdown('<div class="section-header">Conversion Rates</div>', unsafe_allow_html=True)
@@ -619,7 +619,7 @@ with tab1:
         "Numerator": [reviewed_n, approved_n, rejected_n, withdrawn_n, awaiting_n],
         "Denominator": [pending_n, reviewed_n, reviewed_n, reviewed_n, pending_n],
     }
-    st.dataframe(pd.DataFrame(conv_data), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(conv_data), width="stretch", hide_index=True)
 
 
 with tab2:
@@ -646,7 +646,7 @@ with tab2:
             xaxis=dict(gridcolor="#e2e5ef"), yaxis=dict(gridcolor="#e2e5ef"),
             height=420, legend_title_text="",
         )
-        st.plotly_chart(fig_vol, use_container_width=True)
+        st.plotly_chart(fig_vol, width="stretch")
 
         # Cumulative approved line
         approved_daily = (
@@ -672,7 +672,7 @@ with tab2:
                 xaxis=dict(gridcolor="#e2e5ef"), yaxis=dict(gridcolor="#e2e5ef"),
                 height=320, title_font_color="#6b7390", title_font_size=11,
             )
-            st.plotly_chart(fig_cum, use_container_width=True)
+            st.plotly_chart(fig_cum, width="stretch")
     else:
         st.warning("No valid dates found for time-series charting.")
 
@@ -697,7 +697,7 @@ with tab3:
         )
         if not agent_table.empty:
             agent_table["Approval Rate"] = (agent_table["Approvals"] / agent_table["TotalActions"]).map("{:.0%}".format)
-        st.dataframe(agent_table, use_container_width=True, hide_index=True)
+        st.dataframe(agent_table, width="stretch", hide_index=True)
 
     with right_a:
         st.markdown('<div class="section-header">Outcome Distribution</div>', unsafe_allow_html=True)
@@ -714,10 +714,10 @@ with tab3:
                 xaxis=dict(gridcolor="#e2e5ef"), yaxis=dict(gridcolor="#e2e5ef"),
                 height=360, legend_title_text="",
             )
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width="stretch")
 
     st.markdown('<div class="section-header">Full Cross-Reference</div>', unsafe_allow_html=True)
-    st.dataframe(filtered_summary, use_container_width=True, hide_index=True)
+    st.dataframe(filtered_summary, width="stretch", hide_index=True)
 
 
 with tab4:
@@ -753,7 +753,7 @@ with tab4:
                     "Status": row.get("StatusTo", ""),
                     "File": row.get("SourceFile", ""),
                 })
-            st.dataframe(pd.DataFrame(timeline_rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(timeline_rows), width="stretch", hide_index=True)
 
 # ── Export ─────────────────────────────────────────────────────────────────
 st.markdown("---")
