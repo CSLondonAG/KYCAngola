@@ -662,7 +662,6 @@ with tab3:
                 UniqueUsers=("UserID", "nunique"),
                 Approvals=("IsApproval", "sum"),
                 Rejections=("IsRejected", "sum"),
-                PendingActions=("IsPending", "sum"),
             )
             .reset_index().sort_values("TotalActions", ascending=False)
         )
