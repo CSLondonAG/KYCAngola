@@ -483,11 +483,6 @@ with st.sidebar:
     event_types = sorted(df["EventType"].dropna().unique())
     selected_event_types = st.multiselect("Event types", event_types)
 
-    st.divider()
-    st.markdown('<div style="font-size:11px;color:#6b7390;">Files loaded</div>', unsafe_allow_html=True)
-    for f in csv_files:
-        st.markdown(f'<div style="font-size:12px;color:#4a5068;font-family:DM Mono,monospace;">📄 {os.path.basename(f)}</div>', unsafe_allow_html=True)
-
 # ── Apply filters ──────────────────────────────────────────────────────────
 filtered = df.copy()
 
