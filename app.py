@@ -18,112 +18,165 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+    /* ── Brand Palette ──────────────────────────────────────────────── */
+    :root {
+        --pb-bet-green: #009A44;
+        --pb-bright-green: #00FF66;
+        --pb-dark-green: #003806;
+        --pb-dark-grey: #111111;
+        --pb-bet-yellow: #FAE100;
+        --pb-bet-orange: #FF9300;
+        --pb-white: #FFFFFF;
+        --glass-bg: linear-gradient(145deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 100%);
+        --glass-tint: rgba(0, 56, 6, 0.38);
+        --glass-border: rgba(255,255,255,0.24);
+        --glass-highlight: rgba(255,255,255,0.45);
+        --glass-shadow: 0 26px 50px -20px rgba(0, 20, 2, 0.70);
+        --glass-blur: blur(22px) saturate(150%);
+        --radius-lg: 28px;
+        --radius-md: 20px;
+    }
 
-    html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
+    /* ── Typography ─────────────────────────────────────────────────── */
+    @font-face { font-family:'Proxima Nova'; src:url('/app/static/fonts/ProximaNova-light.woff2') format('woff2'); font-weight:300; font-display:swap; }
+    @font-face { font-family:'Proxima Nova'; src:url('/app/static/fonts/ProximaNova-regular.woff2') format('woff2'); font-weight:400; font-display:swap; }
+    @font-face { font-family:'Proxima Nova'; src:url('/app/static/fonts/ProximaNova-medium.woff2') format('woff2'); font-weight:500; font-display:swap; }
+    @font-face { font-family:'Proxima Nova'; src:url('/app/static/fonts/ProximaNova-semibold.woff2') format('woff2'); font-weight:600; font-display:swap; }
+    @font-face { font-family:'Proxima Nova'; src:url('/app/static/fonts/ProximaNova-bold.woff2') format('woff2'); font-weight:700; font-display:swap; }
 
-    .stApp { background: #f5f6fa; color: #1a1d27; }
+    html, body, [class*="css"] {
+        font-family: 'Proxima Nova', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
 
+    /* ── Layered gradient backdrop ──────────────────────────────────── */
+    .stApp {
+        background:
+            radial-gradient(ellipse 80% 60% at 20% 10%, rgba(0,154,68,0.30) 0%, transparent 70%),
+            radial-gradient(ellipse 60% 80% at 80% 20%, rgba(0,255,102,0.16) 0%, transparent 60%),
+            radial-gradient(ellipse 90% 50% at 50% 90%, rgba(0,154,68,0.25) 0%, transparent 70%),
+            radial-gradient(ellipse 40% 40% at 70% 60%, rgba(0,255,102,0.12) 0%, transparent 50%),
+            radial-gradient(ellipse 50% 70% at 10% 70%, rgba(0,56,6,0.50) 0%, transparent 60%),
+            radial-gradient(ellipse 100% 100% at 50% 50%, rgba(0,56,6,0.95) 0%, transparent 100%),
+            linear-gradient(180deg, #003806 0%, #001a03 100%);
+        background-attachment: fixed;
+        color: var(--pb-white);
+    }
+
+    /* ── Glass surface mixin ────────────────────────────────────────── */
+    .glass-surface,
+    [data-testid="metric-container"],
+    .funnel-card,
+    [data-testid="stExpander"] details {
+        background: var(--glass-tint);
+        background-image: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--glass-shadow), inset 0 1px 0 0 var(--glass-highlight);
+        -webkit-backdrop-filter: var(--glass-blur);
+        backdrop-filter: var(--glass-blur);
+    }
+
+    /* ── KPI metric containers ─────────────────────────────────────── */
     [data-testid="metric-container"] {
-        background: #ffffff;
-        border: 1px solid #e2e5ef;
-        border-radius: 12px;
         padding: 20px 24px;
-        box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        border-radius: var(--radius-md);
+        transition: transform .2s ease, box-shadow .2s ease;
     }
-    [data-testid="metric-container"] label { color: #6b7390; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
-    [data-testid="metric-container"] [data-testid="stMetricValue"] { font-family: 'DM Mono', monospace; font-size: 2rem; color: #1a1d27; }
-    [data-testid="metric-container"] [data-testid="stMetricDelta"] { font-size: 12px; }
+    [data-testid="metric-container"]:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--glass-shadow), inset 0 1px 0 0 var(--glass-highlight), 0 8px 32px rgba(0,20,2,0.5);
+    }
+    [data-testid="metric-container"] label { color: rgba(255,255,255,0.65); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 500; }
+    [data-testid="metric-container"] [data-testid="stMetricValue"] { font-size: 2rem; color: var(--pb-white); font-weight: 400; }
+    [data-testid="metric-container"] [data-testid="stMetricDelta"] { font-size: 12px; color: rgba(255,255,255,0.55); }
 
-    .funnel-card {
-        background: #ffffff;
-        border: 1px solid #e2e5ef;
-        border-radius: 12px;
-        padding: 28px;
-        margin-bottom: 24px;
-        box-shadow: 0 1px 4px rgba(0,0,0,.06);
-    }
-    .funnel-step {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-        gap: 16px;
-    }
-    .funnel-bar-bg {
-        flex: 1;
-        background: #eef0f7;
-        border-radius: 4px;
-        height: 32px;
-        position: relative;
-        overflow: hidden;
-    }
-    .funnel-bar-fill {
-        height: 100%;
-        border-radius: 4px;
-        transition: width .6s ease;
-    }
-    .funnel-label {
-        font-family: 'DM Mono', monospace;
-        font-size: 12px;
-        color: #4a5068;
-        min-width: 120px;
-    }
-    .funnel-count {
-        font-family: 'DM Mono', monospace;
-        font-size: 13px;
-        color: #1a1d27;
-        min-width: 60px;
-        text-align: right;
-    }
-    .funnel-pct {
-        font-family: 'DM Mono', monospace;
-        font-size: 11px;
-        color: #6b7390;
-        min-width: 48px;
-        text-align: right;
-    }
-    .drop-arrow {
-        font-size: 11px;
-        color: #e05252;
-        font-family: 'DM Mono', monospace;
-        padding-left: 136px;
-        margin-bottom: 6px;
-    }
+    /* ── Funnel card & bars ─────────────────────────────────────────── */
+    .funnel-card { padding: 28px; margin-bottom: 24px; }
+    .funnel-step { display: flex; align-items: center; margin-bottom: 10px; gap: 16px; }
+    .funnel-bar-bg { flex: 1; background: rgba(255,255,255,0.08); border-radius: 6px; height: 32px; position: relative; overflow: hidden; }
+    .funnel-bar-fill { height: 100%; border-radius: 6px; transition: width .6s ease; }
+    .funnel-label { font-size: 12px; color: rgba(255,255,255,0.65); min-width: 120px; font-weight: 500; letter-spacing: .02em; }
+    .funnel-count { font-size: 13px; color: var(--pb-white); min-width: 60px; text-align: right; font-weight: 500; }
+    .funnel-pct  { font-size: 11px; color: rgba(255,255,255,0.50); min-width: 48px; text-align: right; }
+    .drop-arrow  { font-size: 11px; color: var(--pb-bet-orange); padding-left: 136px; margin-bottom: 6px; font-weight: 500; }
+
+    /* ── Sidebar — dark glass ──────────────────────────────────────── */
     [data-testid="stSidebar"] {
-        background: #ffffff;
-        border-right: 1px solid #e2e5ef;
+        background: rgba(0,56,6,0.55) !important;
+        -webkit-backdrop-filter: blur(30px) saturate(140%);
+        backdrop-filter: blur(30px) saturate(140%);
+        border-right: 1px solid var(--glass-border);
     }
+    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
     [data-testid="stSidebar"] .stSelectbox label,
     [data-testid="stSidebar"] .stMultiSelect label,
-    [data-testid="stSidebar"] .stDateInput label { color: #6b7390; font-size: 12px; }
+    [data-testid="stSidebar"] .stDateInput label { color: rgba(255,255,255,0.60); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
 
-    .stTabs [data-baseweb="tab-list"] { background: transparent; border-bottom: 1px solid #e2e5ef; }
-    .stTabs [data-baseweb="tab"] { color: #6b7390; font-size: 13px; letter-spacing: .04em; padding: 8px 20px; }
-    .stTabs [aria-selected="true"] { color: #1a1d27; border-bottom: 2px solid #4a7af6; }
+    /* ── Tabs — pill segmented control ─────────────────────────────── */
+    .stTabs [data-baseweb="tab-list"] {
+        background: var(--glass-tint);
+        background-image: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 999px;
+        padding: 4px; gap: 4px;
+        -webkit-backdrop-filter: var(--glass-blur);
+        backdrop-filter: var(--glass-blur);
+    }
+    .stTabs [data-baseweb="tab-list"] button[role="tab"] {
+        border-radius: 999px !important; border: none !important;
+        color: rgba(255,255,255,0.65); font-size: 13px; font-weight: 500;
+        letter-spacing: .04em; padding: 8px 20px; background: transparent;
+        transition: all .2s ease;
+    }
+    .stTabs [data-baseweb="tab-list"] button[role="tab"][aria-selected="true"] {
+        background: var(--pb-bet-yellow) !important;
+        color: var(--pb-dark-grey) !important;
+        font-weight: 600;
+    }
+    .stTabs [data-baseweb="tab-highlight"],
+    .stTabs [data-baseweb="tab-border"] { display: none !important; }
 
-    .section-header {
-        font-size: 11px;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        color: #6b7390;
-        font-weight: 500;
-        margin: 32px 0 16px;
+    .section-header { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,0.50); font-weight: 600; margin: 32px 0 16px; }
+
+    hr { border-color: rgba(255,255,255,0.12); }
+
+    /* ── Tables / Dataframes ───────────────────────────────────────── */
+    [data-testid="stDataFrame"] { border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden; }
+
+    /* ── Inputs — glass style ──────────────────────────────────────── */
+    .stTextInput input,
+    .stSelectbox > div > div,
+    .stMultiSelect > div > div,
+    .stDateInput > div > div {
+        background: rgba(255,255,255,0.10) !important;
+        border: 1px solid var(--glass-border) !important;
+        border-radius: 14px !important;
+        color: var(--pb-white) !important;
     }
 
-    hr { border-color: #e2e5ef; }
-
-    [data-testid="stDataFrame"] { border: 1px solid #e2e5ef; border-radius: 8px; overflow: hidden; }
-
+    /* ── Buttons — yellow pill ─────────────────────────────────────── */
     .stDownloadButton button {
-        background: #5c8df6;
-        color: #fff;
-        border: none;
-        border-radius: 8px;
-        font-size: 13px;
-        font-weight: 500;
-        padding: 10px 24px;
+        background: var(--pb-bet-yellow); color: var(--pb-dark-grey);
+        border: none; border-radius: 999px; font-size: 13px; font-weight: 600;
+        padding: 10px 24px; box-shadow: 0 8px 24px -8px rgba(0,20,2,0.5);
+        transition: all .2s ease;
     }
-    .stDownloadButton button:hover { background: #4a7ae0; }
+    .stDownloadButton button:hover {
+        background: #ffe94d; transform: translateY(-2px);
+        box-shadow: 0 12px 32px -8px rgba(0,20,2,0.6);
+    }
+
+    /* ── Plotly chart wrappers ─────────────────────────────────────── */
+    [data-testid="stPlotlyChart"] > div {
+        background: var(--glass-tint); background-image: var(--glass-bg);
+        border: 1px solid var(--glass-border); border-radius: 24px;
+        box-shadow: var(--glass-shadow), inset 0 1px 0 0 var(--glass-highlight);
+        -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+        padding: 8px;
+    }
+
+    /* ── Alerts ─────────────────────────────────────────────────────── */
+    [data-testid="stAlert"] { border-radius: 18px; }
 
     #MainMenu, footer { visibility: hidden; }
     </style>
@@ -385,12 +438,12 @@ def pct(num, denom):
 # ── Funnel stage config ────────────────────────────────────────────────────
 
 FUNNEL_COLORS = {
-    "entered":   "#5c8df6",
-    "reviewed":  "#38bdf8",
-    "approved":  "#4ade80",
-    "rejected":  "#f87171",
-    "withdrawn": "#fb923c",
-    "pending":   "#a78bfa",
+    "entered":   "#009A44",   # pb-bet-green
+    "reviewed":  "#00FF66",   # pb-bright-green
+    "approved":  "#FAE100",   # pb-bet-yellow
+    "rejected":  "#f87171",   # keep red for rejected
+    "withdrawn": "#FF9300",   # pb-bet-orange
+    "pending":   "rgba(255,255,255,0.35)",  # muted glass white
 }
 
 FUNNEL_STAGES = [
@@ -439,8 +492,8 @@ def render_funnel_html(funnel: dict) -> str:
 
 # ── Main ───────────────────────────────────────────────────────────────────
 
-st.markdown('<h2 style="font-family:DM Mono,monospace;font-size:22px;color:#1a1d27;margin-bottom:4px;">Activity Funnel Report</h2>', unsafe_allow_html=True)
-st.markdown('<p style="color:#6b7390;font-size:13px;margin-bottom:0;">Agent activity pipeline — reads activity log CSVs from the <code>data/</code> folder.</p>', unsafe_allow_html=True)
+st.markdown('<h2 style="font-family:Proxima Nova,Segoe UI,system-ui,sans-serif;font-size:22px;color:#FFFFFF;margin-bottom:4px;font-weight:600;">Activity Funnel Report</h2>', unsafe_allow_html=True)
+st.markdown('<p style="color:rgba(255,255,255,0.50);font-size:13px;margin-bottom:0;">Agent activity pipeline — reads activity log CSVs from the <code style="color:#00FF66;">data/</code> folder.</p>', unsafe_allow_html=True)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
@@ -466,7 +519,7 @@ if df.empty:
 
 # ── Sidebar filters ────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown('<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6b7390;margin-bottom:16px;font-weight:500;">Filters</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,0.50);margin-bottom:16px;font-weight:600;">Filters</div>', unsafe_allow_html=True)
 
     if df["EventDate"].notna().any():
         min_date = df["EventDate"].dropna().min()
@@ -537,7 +590,7 @@ with tab1:
     awaiting_n  = funnel.get("awaiting", 0)
 
     node_labels = ["Entered", "Reviewed", "Approved", "Rejected", "Withdrawn", "Pending"]
-    node_colors = ["#5c8df6", "#38bdf8", "#4ade80", "#f87171", "#fb923c", "#a78bfa"]
+    node_colors = ["#009A44", "#00FF66", "#FAE100", "#f87171", "#FF9300", "rgba(255,255,255,0.35)"]
 
     sources_s = [0, 1, 1, 1, 0]
     targets_s = [1, 2, 3, 4, 5]
@@ -548,21 +601,21 @@ with tab1:
         max(withdrawn_n, 0),
         max(pending_n, 0),
     ]
-    link_colors = ["rgba(56,189,248,.35)",
-                   "rgba(74,222,128,.35)", "rgba(248,113,113,.35)",
-                   "rgba(251,146,60,.35)", "rgba(167,139,250,.35)"]
+    link_colors = ["rgba(0,255,102,.30)",
+                   "rgba(250,225,0,.30)", "rgba(248,113,113,.30)",
+                   "rgba(255,147,0,.30)", "rgba(255,255,255,.15)"]
 
     fig_sankey = go.Figure(go.Sankey(
         arrangement="snap",
         node=dict(pad=18, thickness=18, label=node_labels, color=node_colors,
-                  line=dict(color="#ffffff", width=1)),
+                  line=dict(color="rgba(255,255,255,0.24)", width=1)),
         link=dict(source=sources_s, target=targets_s, value=values_s, color=link_colors),
     ))
     fig_sankey.update_layout(
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="DM Mono", color="#4a5068", size=11),
+        font=dict(family="Proxima Nova, Segoe UI, system-ui, sans-serif", color="rgba(255,255,255,0.80)", size=11),
         margin=dict(l=10, r=10, t=30, b=10), height=400,
-        title=dict(text="Flow Diagram", font=dict(color="#6b7390", size=11), x=0),
+        title=dict(text="Flow Diagram", font=dict(color="rgba(255,255,255,0.50)", size=11), x=0),
     )
     st.plotly_chart(fig_sankey, width="stretch")
 
@@ -607,15 +660,16 @@ with tab2:
             daily, x=gran_col, y="Count", color="EventType", barmode="group",
             labels={gran_col: granularity, "Count": "Users"},
             color_discrete_map={
-                "Approved": "#4ade80", "Rejected": "#f87171",
-                "Pending": "#a78bfa", "Withdrawn": "#fb923c", "Other": "#7b8299"
+                "Approved": "#FAE100", "Rejected": "#f87171",
+                "Pending": "rgba(255,255,255,0.35)", "Withdrawn": "#FF9300", "Other": "rgba(255,255,255,0.20)"
             },
         )
         fig_vol.update_layout(
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(family="DM Mono", color="#4a5068", size=11),
-            legend=dict(font=dict(color="#4a5068"), bgcolor="rgba(0,0,0,0)"),
-            xaxis=dict(gridcolor="#e2e5ef"), yaxis=dict(gridcolor="#e2e5ef"),
+            font=dict(family="Proxima Nova, Segoe UI, system-ui, sans-serif", color="rgba(255,255,255,0.80)", size=11),
+            legend=dict(font=dict(color="rgba(255,255,255,0.65)"), bgcolor="rgba(0,0,0,0)"),
+            xaxis=dict(gridcolor="rgba(255,255,255,0.14)", tickfont=dict(color="rgba(255,255,255,0.30)")),
+            yaxis=dict(gridcolor="rgba(255,255,255,0.14)", tickfont=dict(color="rgba(255,255,255,0.30)")),
             height=420, legend_title_text="",
         )
         st.plotly_chart(fig_vol, width="stretch")
@@ -630,15 +684,16 @@ with tab2:
             fig_cum = px.area(
                 approved_daily, x=gran_col, y="Cumulative Approvals",
                 labels={gran_col: granularity},
-                color_discrete_sequence=["#4ade80"],
+                color_discrete_sequence=["#00FF66"],
                 title="Cumulative Approvals Over Time",
             )
-            fig_cum.update_traces(line_color="#4ade80", fillcolor="rgba(74,222,128,.15)")
+            fig_cum.update_traces(line_color="#00FF66", fillcolor="rgba(0,255,102,.15)")
             fig_cum.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="DM Mono", color="#4a5068", size=11),
-                xaxis=dict(gridcolor="#e2e5ef"), yaxis=dict(gridcolor="#e2e5ef"),
-                height=320, title_font_color="#6b7390", title_font_size=11,
+                font=dict(family="Proxima Nova, Segoe UI, system-ui, sans-serif", color="rgba(255,255,255,0.80)", size=11),
+                xaxis=dict(gridcolor="rgba(255,255,255,0.14)", tickfont=dict(color="rgba(255,255,255,0.30)")),
+                yaxis=dict(gridcolor="rgba(255,255,255,0.14)", tickfont=dict(color="rgba(255,255,255,0.30)")),
+                height=320, title_font_color="rgba(255,255,255,0.50)", title_font_size=11,
             )
             st.plotly_chart(fig_cum, width="stretch")
     else:
@@ -672,15 +727,16 @@ with tab3:
                 outcome, x="EventType", y="Count",
                 color="EventType",
                 color_discrete_map={
-                    "Approved": "#4ade80", "Rejected": "#f87171",
-                    "Pending": "#a78bfa", "Withdrawn": "#fb923c", "Other": "#7b8299"
+                    "Approved": "#FAE100", "Rejected": "#f87171",
+                    "Pending": "rgba(255,255,255,0.35)", "Withdrawn": "#FF9300", "Other": "rgba(255,255,255,0.20)"
                 },
             )
             fig2.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="DM Mono", color="#4a5068", size=11),
+                font=dict(family="Proxima Nova, Segoe UI, system-ui, sans-serif", color="rgba(255,255,255,0.80)", size=11),
                 showlegend=False,
-                xaxis=dict(gridcolor="#e2e5ef"), yaxis=dict(gridcolor="#e2e5ef"),
+                xaxis=dict(gridcolor="rgba(255,255,255,0.14)", tickfont=dict(color="rgba(255,255,255,0.30)")),
+                yaxis=dict(gridcolor="rgba(255,255,255,0.14)", tickfont=dict(color="rgba(255,255,255,0.30)")),
                 height=360,
             )
             st.plotly_chart(fig2, width="stretch")
